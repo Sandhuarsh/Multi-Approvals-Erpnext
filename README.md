@@ -48,10 +48,11 @@ bench --site <site> migrate
 8. Check **Enabled**.
 9. Save.
 
-Saving triggers `sync_custom_fields()` automatically (also exposed as an **"Sync Custom Fields"** button on the settings form), which creates these fields on the target DocType if they don't already exist:
+Saving triggers `sync_custom_fields()` automatically (also exposed as an **"Sync Custom Fields"** button on the settings form), which creates these fields on the target DocType — grouped under their own **"User Approvals" tab** — if they don't already exist:
 
 | Fieldname | Purpose |
 |---|---|
+| `custom_approval_tab` | Tab Break. Everything below lives in its own "User Approvals" tab, appended after the DocType's existing tabs, so it's never mixed into an unrelated section. |
 | `custom_add_approvers` | Table → User Approval Table. The approval chain. |
 | `custom_approval_information_requests` | Table → Approval Information Request. All info requests over the document's lifetime. |
 | `custom_approval_pending_with` | Link → User. Who the ball is currently in front of. |
@@ -61,6 +62,8 @@ Saving triggers `sync_custom_fields()` automatically (also exposed as an **"Sync
 Field creation is idempotent (`create_custom_fields(..., update=False)`), and disabling a configuration **never** deletes its fields.
 
 You can register as many DocTypes as you like from the same single settings screen — each is just another row.
+
+> **Upgrading from an earlier version?** Fields used to be grouped under a collapsible Section Break instead of a dedicated tab. A one-time patch (`v0_2_relocate_approval_fields_to_tab`) runs automatically on `bench migrate` and relocates existing fields — it's non-destructive (child table data and existing column values are preserved; only the field *definitions* are recreated).
 
 ## Adding Approvers
 
@@ -81,6 +84,8 @@ Approvers
 ```
 
 Row order determines approval order in **Sequential** mode. Duplicate users in the same chain are rejected with a clear validation message, and once the process has started (`custom_todo_created = 1`) the approver list itself becomes locked to prevent tampering mid-flight.
+
+**A registered DocType (with `Approver Source = Manual`) cannot be saved at all — not just submitted — without at least one row in the Approvers table.** This is enforced in `validate()`, so it applies on every save (draft or otherwise), through the UI, the API, or a script.
 
 - **Sequential**: only the first row gets an Open ToDo. As each approver approves, their ToDo closes and the next row's ToDo opens, `custom_approval_pending_with` advances, until the last approver — then `custom_approval_status = Approved` and (if configured) the document auto-submits.
 - **Parallel**: every row gets an Open ToDo immediately. The document is only fully approved once *every* row has `action = Approve`.

@@ -48,6 +48,9 @@ def validate(doc, method=None):
 	if approvers:
 		validate_no_duplicate_approvers(approvers)
 
+	if config.approver_source == "Manual" and not approvers:
+		frappe.throw("At least one approver is required in the Approvers table before this document can be saved.")
+
 	if doc.get("custom_todo_created") and not doc.is_new():
 		_prevent_approver_list_changes(doc)
 

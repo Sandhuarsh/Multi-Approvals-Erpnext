@@ -1,12 +1,12 @@
 """Idempotent Custom Field synchronization.
 
 sync_custom_fields() reads every registered row in Multi Approval Settings
-and makes sure the five fields the engine needs exist on that DocType. It
-relies on frappe's own create_custom_fields(), which already skips any
-fieldname that already exists for a doctype - so calling this repeatedly
-(after_install, after_migrate, or every time Multi Approval Settings is
-saved) never creates duplicates and never touches admin-edited fields
-(update=False).
+and makes sure the fields the engine needs exist on that DocType, grouped
+under their own "User Approvals" tab. It relies on frappe's own
+create_custom_fields(), which already skips any fieldname that already
+exists for a doctype - so calling this repeatedly (after_install,
+after_migrate, or every time Multi Approval Settings is saved) never
+creates duplicates and never touches admin-edited fields (update=False).
 
 Disabling a configuration does NOT remove its fields - by design, fields
 are only ever added here, never deleted.
@@ -26,40 +26,31 @@ from multi_approvals.multi_approvals.utils.approval_config import (
 APPROVAL_STATUS_OPTIONS = "Not Started\nPending\nInformation Requested\nApproved\nRejected"
 
 
-SECTION_FIELD = "custom_approval_section"
+TAB_FIELD = "custom_approval_tab"
 COLUMN_BREAK_FIELD = "custom_approval_column_break"
 
 
-def _first_tab_anchor(doctype):
-	"""Anchor fieldname to insert after, chosen so the new fields land on
-	the DocType's default (first) tab instead of wherever its last field
-	happens to be - which on real-world DocTypes (e.g. Purchase Invoice)
-	is often buried in a much later tab such as "More Info" or a
-	third-party app's GST/accounting section.
+def _last_fieldname(doctype):
+	"""Anchor fieldname to insert after. Since the Approval fields are now
+	wrapped in their own Tab Break, they always render as a self-contained
+	"User Approvals" tab regardless of anchor - appending after the
+	DocType's actual last field simply puts that tab last in the tab
+	strip, which is the least surprising place for it to appear.
 	"""
 	meta = frappe.get_meta(doctype)
-	fields = meta.fields
-	if not fields:
-		return None
-
-	for i, df in enumerate(fields):
-		if df.fieldtype == "Tab Break" and i > 0:
-			return fields[i - 1].fieldname
-
-	# No explicit tabs on this DocType - falling back to the last field
-	# keeps the fields visible without needing an anchor mid-form.
-	return fields[-1].fieldname
+	if meta.fields:
+		return meta.fields[-1].fieldname
+	return None
 
 
 def get_field_definitions(doctype):
-	anchor = _first_tab_anchor(doctype)
+	anchor = _last_fieldname(doctype)
 
 	return [
 		{
-			"fieldname": SECTION_FIELD,
-			"label": "Approval",
-			"fieldtype": "Section Break",
-			"collapsible": 1,
+			"fieldname": TAB_FIELD,
+			"label": "User Approvals",
+			"fieldtype": "Tab Break",
 			"insert_after": anchor,
 		},
 		{
@@ -67,7 +58,7 @@ def get_field_definitions(doctype):
 			"label": "Approvers",
 			"fieldtype": "Table",
 			"options": "User Approval Table",
-			"insert_after": SECTION_FIELD,
+			"insert_after": TAB_FIELD,
 		},
 		{
 			"fieldname": INFO_REQUESTS_FIELD,
