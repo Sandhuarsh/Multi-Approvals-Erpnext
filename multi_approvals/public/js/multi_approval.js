@@ -115,21 +115,19 @@ multi_approvals.render_approval_actions = function (frm, config) {
 };
 
 multi_approvals.approve = function (frm, row) {
-	// Approve is the happy path - a quick yes/no confirm, no comment box.
-	frappe.confirm(__("Approve this document?"), function () {
-		frappe.call({
-			method: "multi_approvals.api.take_approval_action",
-			args: {
-				doctype: frm.doc.doctype,
-				docname: frm.doc.name,
-				row_name: row.name,
-				action: "Approve",
-			},
-			freeze: true,
-			callback: function () {
-				frm.reload_doc();
-			},
-		});
+	// One click, no dialog, no comment - just record the approval and move on.
+	frappe.call({
+		method: "multi_approvals.api.take_approval_action",
+		args: {
+			doctype: frm.doc.doctype,
+			docname: frm.doc.name,
+			row_name: row.name,
+			action: "Approve",
+		},
+		freeze: true,
+		callback: function () {
+			frm.reload_doc();
+		},
 	});
 };
 
