@@ -26,23 +26,48 @@ from multi_approvals.multi_approvals.utils.approval_config import (
 APPROVAL_STATUS_OPTIONS = "Not Started\nPending\nInformation Requested\nApproved\nRejected"
 
 
-def _last_fieldname(doctype):
+SECTION_FIELD = "custom_approval_section"
+COLUMN_BREAK_FIELD = "custom_approval_column_break"
+
+
+def _first_tab_anchor(doctype):
+	"""Anchor fieldname to insert after, chosen so the new fields land on
+	the DocType's default (first) tab instead of wherever its last field
+	happens to be - which on real-world DocTypes (e.g. Purchase Invoice)
+	is often buried in a much later tab such as "More Info" or a
+	third-party app's GST/accounting section.
+	"""
 	meta = frappe.get_meta(doctype)
-	if meta.fields:
-		return meta.fields[-1].fieldname
-	return None
+	fields = meta.fields
+	if not fields:
+		return None
+
+	for i, df in enumerate(fields):
+		if df.fieldtype == "Tab Break" and i > 0:
+			return fields[i - 1].fieldname
+
+	# No explicit tabs on this DocType - falling back to the last field
+	# keeps the fields visible without needing an anchor mid-form.
+	return fields[-1].fieldname
 
 
 def get_field_definitions(doctype):
-	insert_after = _last_fieldname(doctype)
+	anchor = _first_tab_anchor(doctype)
 
 	return [
+		{
+			"fieldname": SECTION_FIELD,
+			"label": "Approval",
+			"fieldtype": "Section Break",
+			"collapsible": 1,
+			"insert_after": anchor,
+		},
 		{
 			"fieldname": APPROVERS_FIELD,
 			"label": "Approvers",
 			"fieldtype": "Table",
 			"options": "User Approval Table",
-			"insert_after": insert_after,
+			"insert_after": SECTION_FIELD,
 		},
 		{
 			"fieldname": INFO_REQUESTS_FIELD,
@@ -52,19 +77,17 @@ def get_field_definitions(doctype):
 			"insert_after": APPROVERS_FIELD,
 		},
 		{
+			"fieldname": COLUMN_BREAK_FIELD,
+			"fieldtype": "Column Break",
+			"insert_after": INFO_REQUESTS_FIELD,
+		},
+		{
 			"fieldname": PENDING_WITH_FIELD,
 			"label": "Approval Pending With",
 			"fieldtype": "Link",
 			"options": "User",
 			"read_only": 1,
-			"insert_after": INFO_REQUESTS_FIELD,
-		},
-		{
-			"fieldname": TODO_CREATED_FIELD,
-			"label": "Approval ToDo Created",
-			"fieldtype": "Check",
-			"hidden": 1,
-			"insert_after": PENDING_WITH_FIELD,
+			"insert_after": COLUMN_BREAK_FIELD,
 		},
 		{
 			"fieldname": APPROVAL_STATUS_FIELD,
@@ -73,7 +96,14 @@ def get_field_definitions(doctype):
 			"options": APPROVAL_STATUS_OPTIONS,
 			"default": "Not Started",
 			"read_only": 1,
-			"insert_after": TODO_CREATED_FIELD,
+			"insert_after": PENDING_WITH_FIELD,
+		},
+		{
+			"fieldname": TODO_CREATED_FIELD,
+			"label": "Approval ToDo Created",
+			"fieldtype": "Check",
+			"hidden": 1,
+			"insert_after": APPROVAL_STATUS_FIELD,
 		},
 	]
 
