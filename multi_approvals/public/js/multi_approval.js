@@ -85,7 +85,7 @@ multi_approvals.render_approval_actions = function (frm, config) {
 		frm.add_custom_button(
 			__("Approve"),
 			function () {
-				multi_approvals.confirm_and_send(frm, my_row, "Approve");
+				multi_approvals.approve(frm, my_row);
 			},
 			__("Approval")
 		);
@@ -95,7 +95,7 @@ multi_approvals.render_approval_actions = function (frm, config) {
 		frm.add_custom_button(
 			__("Reject"),
 			function () {
-				multi_approvals.confirm_and_send(frm, my_row, "Reject");
+				multi_approvals.reject(frm, my_row);
 			},
 			__("Approval")
 		);
@@ -114,18 +114,38 @@ multi_approvals.render_approval_actions = function (frm, config) {
 	frm.page.set_indicator(__("Approval Pending With You"), "orange");
 };
 
-multi_approvals.confirm_and_send = function (frm, row, action) {
+multi_approvals.approve = function (frm, row) {
+	// Approve is the happy path - a quick yes/no confirm, no comment box.
+	frappe.confirm(__("Approve this document?"), function () {
+		frappe.call({
+			method: "multi_approvals.api.take_approval_action",
+			args: {
+				doctype: frm.doc.doctype,
+				docname: frm.doc.name,
+				row_name: row.name,
+				action: "Approve",
+			},
+			freeze: true,
+			callback: function () {
+				frm.reload_doc();
+			},
+		});
+	});
+};
+
+multi_approvals.reject = function (frm, row) {
+	// Reject always needs a reason on record.
 	var d = new frappe.ui.Dialog({
-		title: __(action),
+		title: __("Reject"),
 		fields: [
 			{
 				fieldname: "comments",
 				fieldtype: "Small Text",
 				label: __("Comments"),
-				reqd: action === "Reject" ? 1 : 0,
+				reqd: 1,
 			},
 		],
-		primary_action_label: __(action),
+		primary_action_label: __("Reject"),
 		primary_action: function (values) {
 			frappe.call({
 				method: "multi_approvals.api.take_approval_action",
@@ -133,7 +153,7 @@ multi_approvals.confirm_and_send = function (frm, row, action) {
 					doctype: frm.doc.doctype,
 					docname: frm.doc.name,
 					row_name: row.name,
-					action: action,
+					action: "Reject",
 					comments: values.comments,
 				},
 				freeze: true,
