@@ -227,6 +227,22 @@ multi_approvals.render_information_request_actions = function (frm) {
 		return;
 	}
 
+	var label =
+		rows.length > 1
+			? __("Information Requested From You ({0})", [rows.length])
+			: __("Information Requested From You");
+
+	frm.page.set_indicator(label, "blue");
+	frm.dashboard.set_headline_alert(
+		"<b>" +
+			frappe.utils.escape_html(rows[0].requested_by) +
+			"</b> " +
+			__("requested information from you") +
+			": " +
+			frappe.utils.escape_html(rows[0].request || ""),
+		"blue"
+	);
+
 	frm.add_custom_button(
 		__("Respond to Information Request"),
 		function () {
